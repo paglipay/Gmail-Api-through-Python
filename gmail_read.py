@@ -55,6 +55,7 @@ mssg_list = unread_msgs['messages']
 print ("Total unread messages in inbox: ", str(len(mssg_list)))
 
 final_list = [ ]
+ucla_list = [ ]
 
 
 for mssg in mssg_list:
@@ -92,28 +93,41 @@ for mssg in mssg_list:
 	temp_dict['Snippet'] = message['snippet'] # fetching message snippet
 
 
-	try:
+	# try:
 		
-		# Fetching message body
+	# Fetching message body
+	if 'parts' in payld.keys():
 		mssg_parts = payld['parts'] # fetching the message parts
 		part_one  = mssg_parts[0] # fetching first element of the part 
+		# part_one  = '\n'.join(mssg_parts) # fetching first element of the part 
 		part_body = part_one['body'] # fetching body of the message
-		part_data = part_body['data'] # fetching data from the body
-		clean_one = part_data.replace("-","+") # decoding from Base64 to UTF-8
-		clean_one = clean_one.replace("_","/") # decoding from Base64 to UTF-8
-		clean_two = base64.b64decode (bytes(clean_one, 'UTF-8')) # decoding from Base64 to UTF-8
-		soup = BeautifulSoup(clean_two , "lxml" )
-		mssg_body = soup.body()
-		# mssg_body is a readible form of message body
-		# depending on the end user's requirements, it can be further cleaned 
-		# using regex, beautiful soup, or any other method
-		temp_dict['Message_body'] = mssg_body
+		# print (part_data)
+		if 'data' in part_body.keys():
+			part_data = part_body['data'] # fetching data from the body
+			# print (base64.b64decode(part_data))
+			clean_one = part_data.replace("-","+") # decoding from Base64 to UTF-8
+			clean_one = clean_one.replace("_","/") # decoding from Base64 to UTF-8
+			clean_two = base64.b64decode (bytes(clean_one, 'UTF-8')) # decoding from Base64 to UTF-8
+			# clean_two_2 = str(clean_two).replace("\\r\\n", "\n").replace("\\n", "\n")
+			# soup = BeautifulSoup(clean_two , "lxml" )
+			soup = BeautifulSoup(clean_two, "html.parser")
+			# mssg_body = soup.body()
+			mssg_body = soup.getText()
+			# print (clean_two)
+			# mssg_body is a readible form of message body
+			# depending on the end user's requirements, it can be further cleaned 
+			# using regex, beautiful soup, or any other method
+			temp_dict['Message_body'] = mssg_body
+			# temp_dict['Message_body'] = str(clean_two).replace("\\r\\n", "\n").replace("\\n", "\n")
 
-	except :
-		pass
+	# except :
+	# 	pass
 
-	print (temp_dict)
-	final_list.append(temp_dict) # This will create a dictonary item in the final list
+	# print (mssg_body)
+	if "Indeed" not in temp_dict["Sender"] and 'Message_body' in temp_dict and  "job description" in temp_dict["Message_body"].lower():
+		final_list.append(temp_dict) # This will create a dictonary item in the final list
+	if "ucla" in temp_dict["Sender"]:
+		ucla_list.append(temp_dict) # This will create a dictonary item in the final list
 	
 	# This will mark the messagea as read
 	GMAIL.users().messages().modify(userId=user_id, id=m_id,body={ 'removeLabelIds': ['UNREAD']}).execute() 
@@ -136,11 +150,32 @@ The final_list will have dictionary in the following format:
 
 The dictionary can be exported as a .csv or into a databse
 '''
+# exporting the values as json
+import json
+with open('JSON_NAME.json', 'w', encoding='utf-8', newline = '') as jsonfile:
+	json.dump(final_list, jsonfile, ensure_ascii=False, indent=4)
 
-#exporting the values as .csv
-with open('CSV_NAME.csv', 'w', encoding='utf-8', newline = '') as csvfile: 
-    fieldnames = ['Sender','Subject','Date','Snippet','Message_body']
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter = ',')
-    writer.writeheader()
-    for val in final_list:
-    	writer.writerow(val)
+with open('UCLA_JSON_NAME.json', 'w', encoding='utf-8', newline = '') as jsonfile:
+	json.dump(ucla_list, jsonfile, ensure_ascii=False, indent=4)
+
+# final_list save as excel
+import pandas as pd
+df = pd.DataFrame(final_list)
+df.to_excel('EXCEL_NAME.xlsx', index=False)
+
+
+# #exporting the values as .csv
+# with open('CSV_NAME.csv', 'w', encoding='utf-8', newline = '') as csvfile: 
+#     fieldnames = ['Sender','Subject','Date','Snippet','Message_body']
+#     writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter = ',')
+#     writer.writeheader()
+#     for val in final_list:
+#     	writer.writerow(val)
+     
+# #exporting the values as .csv
+# with open('UCLA_CSV_NAME.csv', 'w', encoding='utf-8', newline = '') as csvfile: 
+#     fieldnames = ['Sender','Subject','Date','Snippet','Message_body']
+#     writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter = ',')
+#     writer.writeheader()
+#     for val in ucla_list:
+#     	writer.writerow(val)
