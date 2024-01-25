@@ -25,10 +25,128 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase 
 from email import encoders
 
+# preprompt for OpenAI API
+pre_prompt = """Using my actual resume information
+
+###
+# Paul Aglipay
+
+**Senior Network Engineer | CCNP R/S, CCNA Voice, Python**
+
+Los Angeles, CA 90065
+
+Email: paglipay@gmail.com
+
+Phone: (323)610-6668
+
+---
+
+## Work Experience
+
+### Network Engineer / Programmer Analyst III
+
+**UCLA Campus Backbone** - Los Angeles, CA
+
+*October 2016 to Present*
+
+- Provide tier-3 operational support for Firewalls, Proxies, IDS/IPS, NAC to resolve critical business issues
+- Independently own the Security Infrastructure support, solving complex issues and suggesting design modifications
+- Ensure SLAs are met by performing proactive troubleshooting and capacity planning
+- Monitor and maintain the overall environment
+- Participate in troubleshooting, capacity planning, performance analysis, and Root Cause Analysis
+
+### Senior Network Engineer
+
+**Optomi** (UCLA Contracted) - Los Angeles, CA
+
+*April 2016 to October 2016*
+
+- Involved in network engineering tasks and projects
+- Assisted in the design and implementation of network solutions
+- Collaborated with a cross-functional team to meet project deadlines
+
+### Network Engineer
+
+**NIC Partners INC (Cedars Sinai Medical Center)** - Rancho Cucamonga, CA
+
+*October 2015 to April 2016*
+
+- Managed network infrastructure for Cedars Sinai Medical Center
+- Implemented and maintained network switches, routers, and firewalls
+- Conducted troubleshooting and resolved network issues
+
+### Network Engineer
+
+**Bob Hope (Burbank) Airport** - Burbank, CA
+
+*November 2014 to October 2015*
+
+- Supported network infrastructure for Bob Hope Airport
+- Configured and maintained routers, switches, and wireless access points
+- Resolved network issues and provided technical support to end-users
+
+### Network/System Administrator
+
+**Prescott Communications Inc** - Mission Hills, CA
+
+*May 2007 to November 2014*
+
+- Managed network and system administration tasks
+- Monitored network performance and implemented necessary improvements
+- Conducted system upgrades and ensured data security
+
+### LAN Systems Administrator
+
+**BMS Communications Inc** - Simi Valley, CA
+
+*September 2001 to May 2007*
+
+- Oversaw LAN administration tasks
+- Configured and maintained network devices
+- Provided technical support to end-users
+
+---
+
+## Education
+
+**CCNP, CCNA Voice, Python**
+
+*Brand College* - Glendale, CA
+
+- Completed training in Python Programming for Network Engineers
+- Completed Cisco Switch (642-813) class for CCNP certification
+- Completed Cisco Route (642-902) class for CCNP certification
+
+**B.S in Computer Visualizations Technology**
+
+*ITT Technical Institute* - Sylmar, CA
+
+---
+
+## Skills
+
+- Python (10+ years)
+
+## Certifications/Licenses
+
+- CCNA
+
+---
+"""
+
 # open json file UCLA_JSON_NAME.json
 with open('JSON_NAME.json') as json_file:
     data = json.load(json_file)
-    for p in data[3:4]:
+    
+    SCOPES = [
+    "https://www.googleapis.com/auth/gmail.send"
+    ]
+    flow = InstalledAppFlow.from_client_secrets_file('client_secret.json', SCOPES)
+    creds = flow.run_local_server(port=0)
+
+    service = build('gmail', 'v1', credentials=creds)
+        
+    for p in data:
         print('Subject: ' + p['Subject'])
         print('Sender: ' + p['Sender'])
         print('Date: ' + p['Date'])
@@ -36,56 +154,60 @@ with open('JSON_NAME.json') as json_file:
         print('Message_body: ' + p['Message_body'])
         print('')
         
+        # save email as txt file
+        filename = p['Subject']
+        filename = filename.replace('/', '').replace('|', '')
+        
+        # clean filename for filename from characters like Â\xa0, Â\xa0C2C and % symbols
+        filename = filename.replace('%', '').replace(':', '')
+        filename = filename.replace('Â\xa0', '')
+        filename = filename.replace('Â\xa0C2C', '')
+        
+        with open('./dist/' + filename + '.txt', 'w') as f:
+            f.write(p['Message_body'])
+        
         # OpenAI API
-        prompt = "Write a resume that would be perfect for the following job position. Format it in raw markdown.\n\n" + p['Message_body']
+        prompt = pre_prompt + "Write a resume that would be perfect for the following job position. Format it in raw markdown.\n\n" + p['Message_body']
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                        {"role": "system", "content": "You are a helpful assistant."},
+                        # {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "system", "content": "You are an expert in resume and career consultation."},
                         {"role": "user", "content": prompt}
                 ]
         )
         print(response['choices'][0]['message']['content'])
         
+
+        
         # save resume as markdown file
-        filename = p['Subject'] + '.md'
-        # clean filename for filename
-        filename = filename.replace('/', '').replace('|', '')
-        with open('./dist/' + filename, 'w') as f:
+        with open('./dist/' + filename + '.md', 'w') as f:
             f.write(response['choices'][0]['message']['content'])
         
         # OpenAI API
-        prompt = "Write a cover letter as an applicant wishing employment for the following job position. Format it in raw markdown.\n\n ### \nJob Position Email:\n\n" + p['Message_body']
+        prompt = pre_prompt + "Write a cover letter as the applicant wishing employment for the following job position. Format it in raw markdown.\n\n ### \nJob Position Email:\n\n" + p['Message_body']
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                        {"role": "system", "content": "You are a helpful assistant."},
+                        # {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "system", "content": "You are an expert in resume and career consultation."},
                         {"role": "user", "content": prompt}
                 ]
         )
         print(response['choices'][0]['message']['content'])
         
         # save resume as markdown file
-        filename = p['Subject'] + ' - cover letter.md'
-        # clean filename for filename
-        filename = filename.replace('/', '').replace('|', '')
-        with open('./dist/' + filename, 'w') as f:
+        cover_letter_filename = filename + ' - cover letter.md'
+
+        with open('./dist/' + cover_letter_filename, 'w') as f:
             f.write(response['choices'][0]['message']['content'])
             
         
-        SCOPES = [
-        "https://www.googleapis.com/auth/gmail.send"
-        ]
-        flow = InstalledAppFlow.from_client_secrets_file('client_secret.json', SCOPES)
-        creds = flow.run_local_server(port=0)
 
-        service = build('gmail', 'v1', credentials=creds)
      
         # message = MIMEText('This is the body of the email\n\nJob Description: \n\nTESTING')
         
-        cover_letter_filename = p['Subject'] + ' - cover letter.md'
         # clean filename for filename
-        cover_letter_filename = cover_letter_filename.replace('/', '').replace('|', '')
         cover_letter_path = os.path.join('./dist/', cover_letter_filename)
         cover_letter_file = open(cover_letter_path, 'rb')
         cover_letter_content = cover_letter_file.read()
@@ -103,9 +225,7 @@ with open('JSON_NAME.json') as json_file:
         # create_message = {'raw': base64.urlsafe_b64encode(message.as_bytes()).decode()}
         
         # attach resume
-        resume_filename = p['Subject'] + '.md'
-        # clean filename for filename
-        resume_filename = resume_filename.replace('/', '').replace('|', '')
+        resume_filename = filename + '.md'
         # `resume_path` is a variable that stores the file path of the resume file. It is used to
         # specify the location of the resume file that will be attached to the email.
         resume_path = os.path.join('./dist/', resume_filename)
@@ -126,7 +246,7 @@ with open('JSON_NAME.json') as json_file:
         encoders.encode_base64(part)
         part.add_header(
             "Content-Disposition",
-            f"attachment; filename= '" + resume_filename + "'",
+            f"attachment; filename= " + resume_filename + "",
         )
         message.attach(part)
         
